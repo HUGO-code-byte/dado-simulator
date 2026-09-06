@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADIVINA EL NUMERO - Juegos Artificiales</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --cube: 160px;      /* tamano de la cara del dado */
+        --cube-half: 80px;  /* mitad = translateZ */
+        --pip: 24px;
+    }
+
+    body {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(135deg, #fff9c4, #fff176, #ffe082);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #1a1a2e;
+        overflow-x: hidden;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        padding: 20px;
+    }
+
+    .logo-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        margin-bottom: 8px;
+    }
+
+    .logo-side {
+        font-size: 0.7rem;
+        color: #555;
+        line-height: 1.5;
+        text-align: center;
+        min-width: 150px;
+        max-width: 160px;
+    }
+
+    .logo-side strong {
+        font-size: 0.73rem;
+        color: #333;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        display: block;
+        margin-bottom: 2px;
+    }
+
+    .logo-side span {
+        color: #666;
+        display: block;
+    }
+
+    .game-container {
+        text-align: center;
+        background: rgba(255,255,255,0.7);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(138,43,226,0.2);
+        border-radius: 24px;
+        padding: 36px 48px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 80px rgba(138,43,226,0.1);
+        max-width: 620px;
+        width: 92vw;
+    }
+
+    .logo {
+        width: 110px;
+        height: 110px;
+        object-fit: contain;
+        border-radius: 50%;
+        border: 3px solid rgba(168,85,247,0.5);
+        box-shadow: 0 0 24px rgba(168,85,247,0.3), 0 0 60px rgba(236,72,153,0.15);
+        margin-bottom: 14px;
+    }
+
+    h1 {
+        font-size: 1.9rem;
+        margin-bottom: 6px;
+        background: linear-gradient(90deg, #a855f7, #ec4899, #f97316, #16a34a, #0ea5e9);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradientShift 4s ease infinite;
+    }
+
+    @keyframes gradientShift {
+        0%, 100% { background-position: 0% center; }
+        50% { background-position: 100% center; }
+    }
+
+    .subtitle {
+        font-size: 0.78rem;
+        color: #555;
+        margin-bottom: 22px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        background: linear-gradient(90deg, #a855f7, #ec4899);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .setup {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 10px;
+    }
+
+    .setup label {
+        font-size: 0.9rem;
+        color: #444;
+    }
+
+    select {
+        padding: 7px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(138,43,226,0.3);
+        background: rgba(255,255,255,0.9);
+        color: #333;
+        font-size: 1rem;
+        outline: none;
+        cursor: pointer;
+    }
+
+    select option { color: #333; background: #fff; }
+
+    /* ---------- ESCENARIO 3D ---------- */
+    .dice-stage {
+        position: relative;
+        width: calc(var(--cube) + 60px);
+        height: calc(var(--cube) + 60px);
+        margin: 14px auto;
+        perspective: 1000px;
+        perspective-origin: 50% 30%;
+    }
+
+    .dice {
+        position: absolute;
+        inset: 0;
+        margin: auto;
+        width: var(--cube);
+        height: var(--cube);
+        transform-style: preserve-3d;
+        transition: transform 0.5s cubic-bezier(0.25, 0.9, 0.35, 1);
+        will-change: transform;
+    }
+
+    .dice.rolling {
+        animation: roll 1.35s ease-in-out;
+    }
+
+    @keyframes roll {
+        0%   { transform: rotateX(0)    rotateY(0)    rotateZ(0)   rotate3d(1,1,0,0deg); }
+        15%  { transform: rotateX(220deg) rotateY(80deg)  rotateZ(30deg); }
+        30%  { transform: rotateX(500deg) rotateY(300deg) rotateZ(-40deg); }
+        45%  { transform: rotateX(700deg) rotateY(520deg) rotateZ(70deg); }
+        60%  { transform: rotateX(980deg) rotateY(760deg) rotateZ(-80deg); }
+        75%  { transform: rotateX(1180deg) rotateY(940deg) rotateZ(40deg); }
+        88%  { transform: rotateX(1320deg) rotateY(1080deg) rotateZ(-20deg); }
+        100% { transform: rotateX(1440deg) rotateY(1200deg) rotateZ(0); }
+    }
+
+    .face {
+        position: absolute;
+        width: var(--cube);
+        height: var(--cube);
+        background: linear-gradient(145deg, #ffffff, #f0f0f0);
+        border-radius: 14px;
+        border: 1px solid rgba(0,0,0,0.06);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        padding: 14px;
+        box-shadow: inset 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .face.f1 { transform: rotateX( 90deg) translateZ(var(--cube-half)); }
+    .face.f2 { transform: rotateY( 90deg) translateZ(var(--cube-half)); }
+    .face.f3 { transform: rotateY( 0deg) translateZ(var(--cube-half)); }
+    .face.f4 { transform: rotateY( 180deg) translateZ(var(--cube-half)); }
+    .face.f5 { transform: rotateY(-90deg) translateZ(var(--cube-half)); }
+    .face.f6 { transform: rotateX(-90deg) translateZ(var(--cube-half)); }
+
+    .pip {
+        width: var(--pip);
+        height: var(--pip);
+        border-radius: 50%;
+        background: radial-gradient(circle at 32% 30%, #555, #111 70%);
+        box-shadow: inset 0 -2px 3px rgba(0,0,0,0.4), inset 0 2px 3px rgba(255,255,255,0.3);
+        align-self: center;
+        justify-self: center;
+        opacity: 1;
+        transition: opacity 0.15s;
+    }
+
+    .pip.hidden { opacity: 0; }
+
+    /* Luz ambiental para dar realismo */
+    .dice-stage::before {
+        content: '';
+        position: absolute;
+        width: calc(var(--cube) + 20px);
+        height: 32px;
+        bottom: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: radial-gradient(ellipse, rgba(0,0,0,0.12), transparent 70%);
+        filter: blur(6px);
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .dice.won {
+        animation: winPulse 0.6s ease-in-out 3;
+    }
+
+    @keyframes winPulse {
+        0%, 100% { filter: brightness(1); }
+        50%      { filter: brightness(1.1) drop-shadow(0 0 26px rgba(168,85,247,0.6)); }
+    }
+
+    /* ---------- TAPA / INTERROGANTE ---------- */
+    .lid {
+        position: absolute;
+        inset: 0;
+        margin: auto;
+        width: calc(var(--cube) + 18px);
+        height: calc(var(--cube) + 18px);
+        border-radius: 22px;
+        background: linear-gradient(160deg, #a855f7, #ec4899);
+        border: 3px solid rgba(255,255,255,0.5);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 14px 40px rgba(0,0,0,0.2), 0 0 30px rgba(168,85,247,0.2);
+        transform: rotateY(90deg);
+        opacity: 0;
+        transition: transform 0.45s cubic-bezier(0.3, 0.8, 0.4, 1.2), opacity 0.3s;
+        z-index: 5;
+        cursor: pointer;
+        user-select: none;
+        pointer-events: none;
+    }
+
+    .lid.show {
+        transform: rotateY(0deg);
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .lid.reveal {
+        transform: translateY(-120px) rotateY(180deg) scale(1.3);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .lid .q-mark {
+        font-size: clamp(3rem, 12vw, 4.6rem);
+        font-weight: 900;
+        line-height: 1;
+        color: #fff;
+        text-shadow: 0 4px 14px rgba(255,255,255,0.5);
+    }
+
+    .lid .q-tip {
+        margin-top: 10px;
+        font-size: 0.66rem;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.8);
+    }
+
+    /* ---------- JUGAR ---------- */
+    .controls { margin: 18px 0 6px; }
+
+    .controls h3 {
+        font-size: 1rem;
+        color: #333;
+        margin-bottom: 12px;
+    }
+
+    .guess-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 64px);
+        gap: 10px;
+        justify-content: center;
+    }
+
+    .guess-btn {
+        width: 64px;
+        height: 64px;
+        font-size: 1.6rem;
+        font-weight: 800;
+        border-radius: 14px;
+        border: 2px solid rgba(138,43,226,0.25);
+        background: linear-gradient(145deg, rgba(138,43,226,0.15), rgba(236,72,153,0.1));
+        color: #333;
+        cursor: pointer;
+        transition: transform 0.12s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .guess-btn:hover:not(:disabled) {
+        background: linear-gradient(145deg, rgba(255,107,107,0.25), rgba(255,210,0,0.2));
+        border-color: #a855f7;
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 8px 24px rgba(138,43,226,0.3), 0 0 20px rgba(236,72,153,0.15);
+    }
+
+    .guess-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    button.main {
+        margin-top: 22px;
+        padding: 14px 46px;
+        font-size: 1.05rem;
+        font-weight: 700;
+        border: none;
+        border-radius: 14px;
+        cursor: pointer;
+        background: linear-gradient(135deg, #a855f7, #ec4899, #f97316);
+        background-size: 200% auto;
+        color: #fff;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        box-shadow: 0 6px 24px rgba(168,85,247,0.35), 0 0 40px rgba(236,72,153,0.1);
+        transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s, background-position 0.4s;
+        animation: btnShimmer 3s ease infinite;
+    }
+
+    @keyframes btnShimmer {
+        0%, 100% { background-position: 0% center; }
+        50% { background-position: 100% center; }
+    }
+
+    button.main:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(168,85,247,0.45); }
+    button.main:active:not(:disabled) { transform: translateY(0); }
+    button.main:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .secondary-link {
+        margin-top: 12px;
+        display: inline-block;
+        font-size: 0.82rem;
+        color: #666;
+        cursor: pointer;
+        text-decoration: underline;
+        background: none;
+        border: none;
+        letter-spacing: 0.5px;
+        transition: color 0.15s;
+    }
+
+    .secondary-link:hover { color: #a855f7; }
+
+    /* ---------- INFO ---------- */
+    .info {
+        margin-top: 16px;
+        font-size: 0.95rem;
+        min-height: 30px;
+        color: #333;
+        line-height: 1.5;
+        padding: 10px 16px;
+        border-radius: 12px;
+        background: rgba(0,0,0,0.04);
+        transition: background 0.3s;
+    }
+
+    .info.hint {
+        background: rgba(168,85,247,0.08);
+    }
+
+    .info strong { font-size: 1.4rem; }
+
+    .info.win { color: #16a34a; font-weight: 700; }
+    .info.lose { color: #dc2626; font-weight: 700; }
+    .info.hint { font-weight: 700; font-size: 1.05rem; }
+    .info.hint.hint-close { color: #16a34a; }
+    .info.hint.hint-medium { color: #d97706; }
+    .info.hint.hint-far { color: #dc2626; }
+
+    .attempts-bar {
+        margin: 6px auto 0;
+        width: 280px;
+        height: 8px;
+        background: rgba(0,0,0,0.08);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .attempts-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #16a34a, #d97706, #dc2626, #ec4899);
+        background-size: 200% auto;
+        border-radius: 4px;
+        transition: width 0.4s ease;
+        animation: barShimmer 2s ease infinite;
+    }
+
+    @keyframes barShimmer {
+        0%, 100% { background-position: 0% center; }
+        50% { background-position: 100% center; }
+    }
+
+    .attempts-label {
+        margin-top: 6px;
+        font-size: 0.78rem;
+        color: #666;
+    }
+
+    /* ---------- CONFETTI ---------- */
+    .confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+
+    .confetti {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        top: -10px;
+        opacity: 0;
+    }
+
+    .confetti.active { animation: confetti-fall linear forwards; }
+
+    @keyframes confetti-fall {
+        0%   { opacity: 1; transform: translateY(0) rotate(0deg); }
+        100% { opacity: 0; transform: translateY(105vh) rotate(720deg); }
+    }
+
+    /* ---------- VICTORIA ---------- */
+    .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 200;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s;
+    }
+
+    .overlay.show { opacity: 1; pointer-events: all; }
+
+    .victory-box {
+        background: linear-gradient(145deg, #ffffff, #f5e6ff);
+        border: 2px solid #a855f7;
+        border-radius: 28px;
+        padding: 46px 58px;
+        text-align: center;
+        box-shadow: 0 0 60px rgba(168,85,247,0.25), 0 0 100px rgba(236,72,153,0.15);
+        transform: scale(0.7);
+        transition: transform 0.4s;
+    }
+
+    .overlay.show .victory-box { transform: scale(1); }
+
+    .victory-box h2 {
+        font-size: 2.1rem;
+        background: linear-gradient(90deg, #a855f7, #ec4899, #f97316, #16a34a, #0ea5e9);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+        animation: gradientShift 3s ease infinite;
+    }
+
+    .victory-box p { color: #444; font-size: 1.02rem; margin-bottom: 6px; }
+
+    .victory-box .brand {
+        margin-top: 14px;
+        font-size: 0.8rem;
+        color: #a855f7;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+    }
+
+    .victory-box button { margin-top: 24px; }
+
+    @media (max-width: 600px) {
+        :root { --cube: 150px; --cube-half: 75px; --pip: 22px; }
+        body { align-items: center; }
+        .logo-row { flex-direction: column; gap: 10px; }
+        .logo-side { min-width: auto; }
+        .game-container { padding: 22px 16px; width: 94vw; }
+        .logo { width: 90px; height: 90px; }
+        h1 { font-size: 1.55rem; }
+        .subtitle { font-size: 0.68rem; margin-bottom: 16px; }
+        .setup { flex-wrap: wrap; gap: 8px; }
+        select { padding: 8px 10px; font-size: 0.95rem; }
+        .guess-grid { grid-template-columns: repeat(3, 62px); gap: 10px; }
+        .guess-btn { width: 62px; height: 62px; font-size: 1.5rem; }
+        .controls h3 { font-size: 0.95rem; }
+        .attempts-bar { width: 100%; max-width: 290px; }
+        button.main { padding: 13px 36px; font-size: 0.95rem; }
+        .info { font-size: 0.88rem; }
+        .victory-box { padding: 34px 26px; border-radius: 20px; }
+        .victory-box h2 { font-size: 1.7rem; }
+        .victory-box p { font-size: 0.95rem; }
+    }
+
+    @media (hover: none) {
+        .guess-btn:hover:not(:disabled) { transform: none; box-shadow: none; }
+        .guess-btn:active:not(:disabled) { transform: scale(0.94); background: rgba(168,85,247,0.2); }
+        button.main:hover:not(:disabled) { transform: none; }
+        button.main:active:not(:disabled) { transform: scale(0.96); }
+    }
+</style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="logo-row">
+        <div class="logo-side">
+            <strong>Alumnos de 1er Año</strong>
+            <span>Desarrollo de Software</span>
+            <span>IESA — Anexo</span>
+            <span>Santa Ana</span>
+        </div>
+        <img src="logo.jpg" alt="Logo" class="logo">
+        <div class="logo-side">
+            <strong>Materia: Programación I</strong>
+            <span>Profesor: Cristian Collante</span>
+        </div>
+    </div>
+    <h1>ADIVINA EL NUMERO</h1>
+    <p class="subtitle">Juegos Artificiales</p>
+
+    <div class="setup" id="setup">
+        <label for="maxAttempts">Intentos para adivinar</label>
+        <select id="maxAttempts">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="5" selected>5</option>
+            <option value="8">8</option>
+            <option value="10">10</option>
+        </select>
+    </div>
+
+    <div class="dice-stage">
+        <div class="dice" id="dice"></div>
+        <div class="lid" id="lid">
+            <span class="q-mark">?</span>
+            <span class="q-tip">Numero oculto</span>
+        </div>
+    </div>
+
+    <div class="attempts-bar"><div class="attempts-fill" id="attemptsFill"></div></div>
+    <div class="attempts-label" id="attemptsLabel"></div>
+
+    <button class="main" id="mainBtn">LANZAR DADO</button><br>
+    <button class="secondary-link" id="giveUpBtn">Ver resultado</button>
+
+    <div class="controls" id="controls">
+        <h3>¿Que numero crees que salio?</h3>
+        <div class="guess-grid" id="guessGrid"></div>
+    </div>
+
+    <div class="info" id="info">Elige tus intentos y lanza el dado.</div>
+</div>
+
+<div class="confetti-container" id="confettiContainer"></div>
+
+<div class="overlay" id="overlay">
+    <div class="victory-box">
+        <h2>FELICITACIONES</h2>
+        <p id="victoryMsg"></p>
+        <div class="brand">JUEGOS ARTIFICIALES</div>
+        <button class="main" style="margin-top:24px;" onclick="closeOverlay()">JUGAR DE NUEVO</button>
+    </div>
+</div>
+
+<script>
+    // ---------- CONFIGURACION DEL CUBO 3D ----------
+    // Cara n pasa a estar "arriba": rotateY(spin) aplicado ANTES del tilt que lleva su normal a +Y
+    const TILT = {
+        1: '',                    // cara 1 ya esta arriba (+Y)
+        2: 'rotateZ(90deg)',      // +X -> +Y
+        3: 'rotateX(-90deg)',     // +Z -> +Y
+        4: 'rotateX(90deg)',      // -Z -> +Y
+        5: 'rotateZ(-90deg)',     // -X -> +Y
+        6: 'rotateX(180deg)'     // -Y -> +Y
+    };
+
+    const PIP_LAYOUT = {
+        1: [4],
+        2: [2, 6],
+        3: [2, 4, 6],
+        4: [0, 2, 6, 8],
+        5: [0, 2, 4, 6, 8],
+        6: [0, 2, 3, 5, 6, 8]
+    };
+
+    const diceEl    = document.getElementById('dice');
+    const lidEl     = document.getElementById('lid');
+    const infoEl    = document.getElementById('info');
+    const fillBar   = document.getElementById('attemptsFill');
+    const attLabel  = document.getElementById('attemptsLabel');
+    const mainBtn   = document.getElementById('mainBtn');
+    const setupEl   = document.getElementById('setup');
+    const controls  = document.getElementById('controls');
+    const guessGrid = document.getElementById('guessGrid');
+    const giveUpBtn = document.getElementById('giveUpBtn');
+    const overlayEl = document.getElementById('overlay');
+    const victMsg   = document.getElementById('victoryMsg');
+    const confettiC = document.getElementById('confettiContainer');
+
+    let target, attemptsUsed, maxAttempts;
+    let phase = 'idle'; // idle | roll | guess | won | lost
+
+    // ---------- CONSTRUIR LAS 6 CARAS ----------
+    const FACE_VALUES = [1, 2, 3, 4, 5, 6];
+    FACE_VALUES.forEach(v => {
+        const face = document.createElement('div');
+        face.className = 'face f' + v;
+        for (let i = 0; i < 9; i++) {
+            const pip = document.createElement('span');
+            pip.className = 'pip' + (PIP_LAYOUT[v].includes(i) ? '' : ' hidden');
+            face.appendChild(pip);
+        }
+        diceEl.appendChild(face);
+    });
+
+    // ---------- FUNCIONES ----------
+    function rotFor(value, spinY) {
+        return 'rotateY(' + spinY + 'deg) ' + TILT[value];
+    }
+
+    function rollDice(finalValue) {
+        phase = 'roll';
+        mainBtn.disabled = true;
+        controls.style.opacity = '0.4';
+        infoEl.className = 'info';
+        infoEl.textContent = 'Lanzando el dado...';
+
+        diceEl.classList.remove('rolling', 'won');
+        lidEl.classList.remove('show', 'reveal');
+        void diceEl.offsetWidth;
+
+        if (diceEl.style.transition) {
+            diceEl.style.transition = 'none';
+            diceEl.style.transform = '';
+            void diceEl.offsetWidth;
+        }
+
+        diceEl.classList.add('rolling');
+        diceEl.style.transition = 'none';
+
+        // Hacia el final de la animacion, la tapa cubre el numero y el dado se acomoda en su cara
+        setTimeout(() => {
+            diceEl.classList.remove('rolling');
+            diceEl.style.transition = 'transform 0.5s cubic-bezier(0.3, 0.9, 0.4, 1.15)';
+            const spin = 720 + Math.floor(Math.random() * 360);
+            diceEl.style.transform = rotFor(finalValue, spin);
+            lidEl.classList.add('show');
+        }, 1050);
+
+        setTimeout(() => { guessPhase(); }, 1650);
+    }
+
+    function guessPhase() {
+        phase = 'guess';
+        mainBtn.disabled = false;
+        controls.style.opacity = '1';
+        infoEl.className = 'info';
+        infoEl.textContent = 'El dado ha rodado. ¿Que numero crees que salio?';
+    }
+
+    function guess(num) {
+        if (phase !== 'guess') return;
+
+        attemptsUsed++;
+        fillBar.style.width = Math.min(100, (attemptsUsed / maxAttempts) * 100) + '%';
+        attLabel.textContent = 'Intento ' + attemptsUsed + ' de ' + maxAttempts;
+
+        if (num === target) {
+            win(num);
+        } else {
+            const diff = Math.abs(num - target);
+            const direction = num < target ? 'mayor' : 'menor';
+            let hintClass, hintEmoji, hintMsg;
+
+            if (diff === 1) {
+                hintClass = 'hint-close';
+                hintEmoji = '';
+                hintMsg = 'Muy cerca! El numero es ' + direction + '.';
+            } else if (diff === 2) {
+                hintClass = 'hint-medium';
+                hintEmoji = '';
+                hintMsg = 'Casi! El numero es ' + direction + '.';
+            } else {
+                hintClass = 'hint-far';
+                hintEmoji = '';
+                hintMsg = 'Lejos! El numero es ' + direction + '.';
+            }
+
+            infoEl.className = 'info hint ' + hintClass;
+            infoEl.textContent = hintEmoji + ' ' + num + ' no es. ' + hintMsg;
+
+            if (attemptsUsed >= maxAttempts) {
+                lose();
+            }
+        }
+    }
+
+    function win(num) {
+        phase = 'won';
+        lidEl.classList.remove('show');
+        lidEl.classList.add('reveal');
+        diceEl.classList.remove('rolling', 'won');
+
+        diceEl.style.transition = 'none';
+        diceEl.style.transform = rotFor(target, 360);
+        void diceEl.offsetWidth;
+
+        diceEl.style.transition = 'transform 1.3s cubic-bezier(0.34, 1.2, 0.64, 1)';
+        const turns = 1440 + Math.floor(Math.random() * 360);
+        diceEl.style.transform = rotFor(target, turns);
+
+        mainBtn.disabled = true;
+        infoEl.className = 'info win';
+        infoEl.textContent = '¡ACERTASTE! El dado salio ' + num;
+
+        spawnConfetti();
+
+        setTimeout(() => {
+            diceEl.style.transition = 'none';
+            diceEl.style.transform = rotFor(target, 0);
+            void diceEl.offsetWidth;
+            diceEl.style.transition = 'transform 0.6s cubic-bezier(0.25, 0.9, 0.35, 1)';
+            diceEl.style.transform = rotFor(target, 360);
+        }, 1300);
+
+        setTimeout(() => {
+            victMsg.textContent = 'Adivinaste el numero ' + target + '.' +
+                (attemptsUsed === 1 ? ' A la primera.' : ' Lo lograste en ' + attemptsUsed + ' intentos.');
+            overlayEl.classList.add('show');
+        }, 1500);
+    }
+
+    function lose() {
+        phase = 'lost';
+        reveal();
+        mainBtn.disabled = false;
+        mainBtn.textContent = 'JUGAR DE NUEVO';
+        giveUpBtn.style.display = 'none';
+        attLabel.textContent = '';
+        infoEl.className = 'info lose';
+        infoEl.textContent = 'Perdiste. Se acabaron tus intentos. El numero era ' + target + '.';
+    }
+
+    function settleOn(value) {
+        diceEl.classList.remove('rolling', 'won');
+        diceEl.style.transition = 'none';
+        diceEl.style.transform = rotFor(value, 0);
+        void diceEl.offsetWidth;
+        diceEl.style.transition = 'transform 0.5s cubic-bezier(0.3, 0.9, 0.4, 1.15)';
+        diceEl.style.transform = rotFor(value, 360);
+    }
+
+    function reveal() {
+        settleOn(target);
+        lidEl.classList.remove('show');
+        lidEl.classList.add('reveal');
+    }
+
+    function giveUp() {
+        if (phase !== 'guess') return;
+        phase = 'lost';
+        reveal();
+        mainBtn.disabled = false;
+        mainBtn.textContent = 'JUGAR DE NUEVO';
+        giveUpBtn.style.display = 'none';
+        attLabel.textContent = '';
+        infoEl.className = 'info lose';
+        infoEl.textContent = 'Perdiste. Te diste por vencido.';
+    }
+
+    function reset() {
+        attemptsUsed = 0;
+        maxAttempts = parseInt(document.getElementById('maxAttempts').value);
+        fillBar.style.width = '0%';
+        attLabel.textContent = '';
+        infoEl.className = 'info';
+        infoEl.textContent = 'Elige tus intentos y lanza el dado.';
+        controls.style.opacity = '1';
+        giveUpBtn.style.display = 'inline-block';
+        overlayEl.classList.remove('show');
+        diceEl.classList.remove('rolling', 'won');
+        lidEl.classList.remove('show', 'reveal');
+        diceEl.style.transition = 'none';
+        diceEl.style.transform = '';
+        phase = 'idle';
+        mainBtn.disabled = false;
+        mainBtn.textContent = 'LANZAR DADO';
+    }
+
+    function play() {
+        if (phase === 'won' || phase === 'lost') { reset(); return; }
+
+        target = Math.floor(Math.random() * 6) + 1;
+        attemptsUsed = 0;
+        maxAttempts = parseInt(document.getElementById('maxAttempts').value);
+        fillBar.style.width = '0%';
+        attLabel.textContent = '';
+        giveUpBtn.style.display = 'inline-block';
+        rollDice(target);
+    }
+
+    function closeOverlay() {
+        overlayEl.classList.remove('show');
+        reset();
+    }
+
+    // ---------- CONFETTI ----------
+    function spawnConfetti() {
+        const colors = ['#a855f7', '#ec4899', '#f97316', '#dc2626', '#16a34a', '#0ea5e9', '#eab308', '#ffffff'];
+        const bursts = 3; // varias oleadas para que dure mas
+        for (let b = 0; b < bursts; b++) {
+            setTimeout(() => {
+                for (let i = 0; i < 70; i++) {
+                    const c = document.createElement('div');
+                    c.className = 'confetti';
+                    c.style.left = Math.random() * 100 + 'vw';
+                    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                    c.style.width = (Math.random() * 8 + 6) + 'px';
+                    c.style.height = (Math.random() * 8 + 6) + 'px';
+                    c.style.animationDuration = (Math.random() * 3 + 4) + 's';
+                    c.style.animationDelay = (Math.random() * 2) + 's';
+                    confettiC.appendChild(c);
+                    requestAnimationFrame(() => c.classList.add('active'));
+                }
+            }, b * 1800);
+        }
+        setTimeout(() => { confettiC.innerHTML = ''; }, 16000);
+    }
+
+    // ---------- BOTONES DE NUMERO ----------
+    for (let i = 1; i <= 6; i++) {
+        const b = document.createElement('button');
+        b.className = 'guess-btn';
+        b.textContent = i;
+        b.onclick = () => guess(i);
+        guessGrid.appendChild(b);
+    }
+
+    // Adivinar a traves del boton principal una vez lanzado
+    mainBtn.onclick = play;
+
+    lidEl.onclick = () => { if (phase === 'guess') giveUp(); };
+    giveUpBtn.onclick = giveUp;
+
+    reset();
+</script>
+</body>
+</html>
